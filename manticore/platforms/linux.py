@@ -1336,11 +1336,11 @@ class Linux(Platform):
         :raises error:
                     - "Error in brk!" if there is any error allocating the memory
         '''
-        if brk != 0 and brk != self.elf_brk:
+        if brk != 0 and brk > self.elf_brk:
             mem = self.current.memory
             size = brk - self.elf_brk
-            perms = mem.perms(self.elf_brk - 1)
             if brk > mem._ceil(self.elf_brk):
+                perms = mem.perms(self.elf_brk - 1)
                 addr = mem.mmap(mem._ceil(self.elf_brk), size, perms)
                 assert mem._ceil(self.elf_brk) == addr, "Error in brk!"
             self.elf_brk += size

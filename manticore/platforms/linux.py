@@ -2624,6 +2624,9 @@ class SLinux(Linux):
     def sys_chroot(self, buf):
         return -errno.EPERM
 
+    def sys_fork(self):
+        return -errno.ENOSYS
+
     def generate_workspace_files(self):
         def solve_to_fd(data, fd):
             try:

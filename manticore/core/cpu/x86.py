@@ -5952,6 +5952,25 @@ class AMD64LinuxSyscallAbi(SyscallAbi):
         self._cpu.RAX = result
 
 
+class AMD64NetBSDSyscallAbi(SyscallAbi):
+    '''
+    AMD64 NetBSD system call ABI
+    '''
+
+    # TODO(yan): Floating point or wide arguments that deviate from the norm are
+    # not yet supported.
+
+    def syscall_number(self):
+        return self._cpu.RAX
+
+    def get_arguments(self):
+        for reg in ('RDI', 'RSI', 'RDX', 'R10', 'R8', 'R9'):
+            yield reg
+
+    def write_result(self, result):
+        self._cpu.RAX = result
+
+
 class I386CdeclAbi(Abi):
     '''
     i386 cdecl function call semantics

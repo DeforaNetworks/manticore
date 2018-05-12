@@ -1,4 +1,4 @@
-from .x86 import AMD64Cpu, I386Cpu, AMD64LinuxSyscallAbi, I386LinuxSyscallAbi, I386CdeclAbi, SystemVAbi
+from .x86 import AMD64Cpu, I386Cpu, AMD64LinuxSyscallAbi, AMD64NetBSDSyscallAbi, I386LinuxSyscallAbi, I386CdeclAbi, SystemVAbi
 from .arm import Armv7Cpu, Armv7CdeclAbi, Armv7LinuxSyscallAbi
 
 
@@ -17,7 +17,7 @@ class CpuFactory(object):
     def get_function_abi(cpu, os, machine):
         if os == 'linux' and machine == 'i386':
             return I386CdeclAbi(cpu)
-        elif os == 'linux' and machine == 'amd64':
+        elif (os == 'linux' or os == 'netbsd') and machine == 'amd64':
             return SystemVAbi(cpu)
         elif os == 'linux' and machine == 'armv7':
             return Armv7CdeclAbi(cpu)
@@ -32,5 +32,7 @@ class CpuFactory(object):
             return AMD64LinuxSyscallAbi(cpu)
         elif os == 'linux' and machine == 'armv7':
             return Armv7LinuxSyscallAbi(cpu)
+        elif os == 'netbsd' and machine == 'amd64':
+            return AMD64NetBSDSyscallAbi(cpu)
         else:
             return NotImplementedError("OS and machine combination not supported: {}/{}".format(os, machine))

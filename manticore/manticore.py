@@ -11,16 +11,17 @@ from contextlib import contextmanager
 
 from threading import Timer
 
-# FIXME: remove this three
+# FIXME: remove these
 import elftools
 from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import NoteSection
 from elftools.elf.sections import SymbolTableSection
 
 from .core.executor import Executor
 from .core.state import State, TerminateState
 from .core.smtlib import solver, ConstraintSet
 from .core.workspace import ManticoreOutput
-from .platforms import linux, decree, evm
+from .platforms import linux, netbsd, decree, evm
 from .utils.helpers import issymbolic, is_binja_disassembler
 from .utils.nointerrupt import WithKeyboardInterruptAs
 from .utils.event import Eventful
@@ -76,6 +77,19 @@ def make_decree(program, concrete_start='', **kwargs):
     return initial_state
 
 
+def make_elf(program, argv=None, env=None, entry_symbol=None, symbolic_files=None, concrete_start=''):
+    #with open(program, 'rb') as f:
+    with open(program, 'rb') as f:
+	for sect in ELFFile(f).iter_sections():
+	    if not isinstance(sect, NoteSection):
+		continue
+	    for note in sect.iter_notes():
+                if note['n_name'] == 'NetBSD':
+                    logger.info("NetBSD binary detected")
+                    return make_netbsd(program, argv, env, entry_symbol, symbolic_files, concrete_start)
+    return make_linux(program, argv, env, entry_symbol, symbolic_files, concrete_start)
+
+
 def make_linux(program, argv=None, env=None, entry_symbol=None, symbolic_files=None, concrete_start=''):
     env = {} if env is None else env
     argv = [] if argv is None else argv
@@ -120,6 +134,50 @@ def make_linux(program, argv=None, env=None, entry_symbol=None, symbolic_files=N
     return initial_state
 
 
+def make_netbsd(program, argv=None, env=None, entry_symbol=None, symbolic_files=None, concrete_start=''):
+    env = {} if env is None else env
+    argv = [] if argv is None else argv
+    env = ['%s=%s' % (k, v) for k, v in env.items()]
+
+    logger.info('Loading program %s', program)
+
+    constraints = ConstraintSet()
+    platform = netbsd.SNetBSD(program, argv=argv, envp=env,
+                            symbolic_files=symbolic_files)
+    if entry_symbol is not None:
+        entry_pc = platform._find_symbol(entry_symbol)
+        if entry_pc is None:
+            logger.error("No symbol for '%s' in %s", entry_symbol, program)
+            raise Exception("Symbol not found")
+        else:
+            logger.info("Found symbol '%s' (%x)", entry_symbol, entry_pc)
+            #TODO: use argv as arguments for function
+            platform.set_entry(entry_pc)
+
+    initial_state = State(constraints, platform)
+
+    if concrete_start != '':
+        logger.info('Starting with concrete input: %s', concrete_start)
+
+    for i, arg in enumerate(argv):
+        argv[i] = initial_state.symbolicate_buffer(arg, label='ARGV%d' % (i + 1))
+
+    for i, evar in enumerate(env):
+        env[i] = initial_state.symbolicate_buffer(evar, label='ENV%d' % (i + 1))
+
+    # If any of the arguments or environment refer to symbolic values, re-
+    # initialize the stack
+    if any(issymbolic(x) for val in argv + env for x in val):
+        platform.setup_stack([program] + argv, env)
+
+    platform.input.write(concrete_start)
+
+    # set stdin input...
+    platform.input.write(initial_state.symbolicate_buffer('+' * 256,
+                                                          label='STDIN'))
+    return initial_state
+
+
 def make_initial_state(binary_path, **kwargs):
     if 'disasm' in kwargs:
         if kwargs.get('disasm') == "binja-il":
@@ -128,8 +186,8 @@ def make_initial_state(binary_path, **kwargs):
             del kwargs['disasm']
     magic = file(binary_path).read(4)
     if magic == '\x7fELF':
-        # Linux
-        state = make_linux(binary_path, **kwargs)
+        # ELF
+        state = make_elf(binary_path, **kwargs)
     elif magic == '\x7fCGC':
         # Decree
         state = make_decree(binary_path, **kwargs)

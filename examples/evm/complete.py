@@ -1,9 +1,10 @@
 from manticore.ethereum import ManticoreEVM
+
 ################ Script #######################
 
 m = ManticoreEVM()
-#And now make the contract account to analyze
-source_code = '''
+# And now make the contract account to analyze
+source_code = """
 contract C {
     uint n;
     function C(uint x) {
@@ -18,29 +19,27 @@ contract C {
         }
     }
 }
-'''
+"""
 
 user_account = m.create_account(balance=1000)
-print "[+] Creating a user account", user_account
+print("[+] Creating a user account", user_account)
 
 contract_account = m.solidity_create_contract(source_code, owner=user_account, args=[42])
-print "[+] Creating a contract account", contract_account
-print "[+] Source code:"
-print source_code
+print("[+] Creating a contract account", contract_account)
+print("[+] Source code:")
+print(source_code)
 
-print "[+] Now the symbolic values"
+print("[+] Now the symbolic values")
 symbolic_data = m.make_symbolic_buffer(320)
-symbolic_value = None
-m.transaction(caller=user_account,
-                address=contract_account,
-                data=symbolic_data,
-                value=symbolic_value )
+symbolic_value = m.make_symbolic_value(name="value")
+m.transaction(
+    caller=user_account, address=contract_account, value=symbolic_value, data=symbolic_data
+)
 
-
-print "[+] Resulting balances are:"
-for state in m.running_states:
-    balance = state.platform.get_balance(user_account)
-    print state.solve_one(balance)
+print("[+] Resulting balances are:")
+for state in m.all_states:
+    balance = state.platform.get_balance(int(user_account))
+    print(state.solve_one(balance))
 
 m.finalize()
-print "[+] Look for results in %s"% m.workspace
+print(f"[+] Look for results in {m.workspace}")

@@ -83,6 +83,7 @@ celerybeat-schedule
 .venv
 venv/
 ENV/
+venvpy27/
 
 # Spyder project settings
 .spyderproject
@@ -95,3 +96,6 @@ ENV/
 
 # PyCharm files
 .idea/
+
+# mypy cache
+.mypy_cache/
